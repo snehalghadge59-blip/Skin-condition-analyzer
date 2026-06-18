@@ -98,7 +98,7 @@ This served as a baseline reference while adapting and customizing the model tra
 
 -   **Framework**: Streamlit
 -   **ML Framework**: TensorFlow / Keras
--   **AI Service**: Gemini API
+-   **AI Service**: Groq API
 -   **Web Scraping**: Selenium, BeautifulSoup4
 -   **Deployed Model**: [skin-condition-classifier on Hugging Face](https://huggingface.co/Tanishq77/skin-condition-classifier/tree/main)
 -   **Dataset**: [Augmented Skin Conditions Dataset on Kaggle](https://www.kaggle.com/datasets/syedalinaqvi/augmented-skin-conditions-image-dataset)
