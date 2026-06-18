@@ -1,0 +1,1058 @@
+import streamlit as st
+from PIL import Image
+import numpy as np
+import tensorflow as tf
+from groq import Groq
+import time
+from bs4 import BeautifulSoup
+import os
+import requests
+
+# ────────────────────────────────────────────────────────────
+# PAGE CONFIG
+# ────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="DermAssist AI · Skin Health Intelligence",
+    page_icon="🧬",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ────────────────────────────────────────────────────────────
+# ADVANCED UI / STYLING ONLY (core logic unchanged)
+# ────────────────────────────────────────────────────────────
+st.markdown(
+    """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #eef6f2;
+  --bg-2: #f7fbf9;
+  --card: rgba(255,255,255,.92);
+  --card-2: #ffffff;
+  --stroke: rgba(13, 71, 52, 0.08);
+  --stroke-strong: rgba(13, 71, 52, 0.18);
+  --primary: #0fae73;
+  --primary-2: #0b8f60;
+  --text: #10231b;
+  --muted: #577064;
+  --soft: #6f857b;
+  --danger: #c94949;
+  --warning: #a67600;
+  --radius: 18px;
+  --radius-lg: 28px;
+  --shadow: 0 10px 26px rgba(16, 35, 27, 0.06);
+  --blur: blur(10px);
+}
+
+html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+  background: radial-gradient(circle at top left, #f7fffb 0%, #eef6f2 45%, #e8f1ed 100%);
+  color: var(--text) !important;
+  font-family: 'Inter', sans-serif !important;
+}
+[data-testid="stAppViewContainer"] {
+  background-attachment: fixed;
+}
+[data-testid="stHeader"], [data-testid="stToolbar"] { display:none !important; }
+[data-testid="stSidebar"] { background: #ffffff !important; }
+.block-container { max-width: 100% !important; padding: 0 !important; }
+main > div { padding-top: 0 !important; }
+section.main { position: relative; z-index: 1; }
+
+[data-testid="stAppViewContainer"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(15,174,115,.08), transparent 22%),
+    radial-gradient(circle at 92% 8%, rgba(32,160,255,.06), transparent 18%),
+    radial-gradient(circle at 90% 80%, rgba(15,174,115,.05), transparent 20%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #e6f0eb; }
+::-webkit-scrollbar-thumb { background: rgba(16,35,27,.14); border-radius: 999px; }
+
+.hero-wrap { padding: 16px 16px 6px; }
+.hero {
+  position: relative;
+  min-height: 58vh;
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 18px;
+  align-items: stretch;
+  padding: 0;
+}
+.hero-card, .glass-panel {
+  background: rgba(255,255,255,.88);
+  border: 1px solid rgba(16,35,27,.08);
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+.hero-left {
+  border-radius: 30px;
+  padding: 34px 32px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255,255,255,.95), rgba(245,251,248,.92));
+}
+.hero-left::before {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  right: -70px;
+  bottom: -70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(15,174,115,.10), transparent 68%);
+}
+.hero-right {
+  border-radius: 30px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+  background: rgba(255,255,255,.82);
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(15,174,115,.18);
+  background: rgba(15,174,115,.08);
+  color: var(--primary-2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.hero-badge .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+  box-shadow: 0 0 0 4px rgba(15,174,115,.12);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(1.18)} }
+
+.hero h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(42px, 6vw, 76px);
+  line-height: 1.02;
+  font-weight: 400;
+  letter-spacing: -.04em;
+  margin: 18px 0 16px;
+  max-width: 720px;
+  color: var(--text);
+}
+.hero h1 em { color: var(--primary-2); font-style: normal; }
+.hero p {
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.75;
+  max-width: 620px;
+  margin: 0 0 22px;
+}
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+.hero-btn, .hero-btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 13px 22px; border-radius: 999px; text-decoration: none; font-weight: 600; transition: .22s ease;
+}
+.hero-btn {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary), #18c985);
+}
+.hero-btn:hover { transform: translateY(-1px); }
+.hero-btn-secondary {
+  color: var(--text); border: 1px solid rgba(16,35,27,.10); background: rgba(255,255,255,.72);
+}
+.hero-btn-secondary:hover { border-color: rgba(15,174,115,.28); color: var(--primary-2); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+.stat-card {
+  background: rgba(247,251,249,.94);
+  border: 1px solid rgba(16,35,27,.06);
+  border-radius: 18px;
+  padding: 14px;
+}
+.stat-card .v {
+  display: block; color: var(--primary-2); font-family: 'Fraunces', serif; font-size: 24px; margin-bottom: 4px;
+}
+.stat-card .l { font-size: 12px; color: var(--muted); }
+
+.hero-visual {
+  min-height: 260px;
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  background: url('https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=1600&q=100') center/cover no-repeat;
+  border: 1px solid rgba(16,35,27,.08);
+}
+.floating-chip-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 0; }
+.floating-chip {
+  background: rgba(250,253,252,.98);
+  border: 1px solid rgba(16,35,27,.08);
+  border-radius: 18px;
+  padding: 14px;
+}
+.floating-chip strong { display: block; color: var(--text); margin-bottom: 5px; font-size: 14px; }
+.floating-chip span { color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+.divider { border: none; border-top: 1px solid rgba(16,35,27,.08); margin: 6px 24px; }
+.section-shell { padding: 12px 16px; }
+.section {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 20px;
+  border-radius: 28px;
+  background: rgba(255,255,255,.84);
+  border: 1px solid rgba(16,35,27,.08);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+.section + .section { margin-top: 16px; }
+.section-label {
+  color: var(--primary-2); text-transform: uppercase; letter-spacing: .12em; font-weight: 700; font-size: 11px; margin-bottom: 10px;
+}
+.section-title {
+  font-family: 'Fraunces', serif; font-size: clamp(30px, 4vw, 50px); font-weight: 400; line-height: 1.04; margin: 0 0 10px; letter-spacing: -.03em; color: var(--text);
+}
+.section-sub { font-size: 15px; color: var(--muted); line-height: 1.7; max-width: 700px; }
+
+.features-grid, .insight-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: 12px; margin-top: 18px;
+}
+.feature-card, .insight-card {
+  position: relative; overflow: hidden; padding: 16px; border-radius: 22px; background: rgba(255,255,255,.96); border: 1px solid rgba(16,35,27,.06); transition: transform .2s ease, border-color .2s ease;
+}
+.feature-card:hover, .insight-card:hover { transform: translateY(-3px); border-color: rgba(15,174,115,.20); }
+.feature-card::after, .insight-card::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, rgba(15,174,115,.95), transparent);
+}
+.feature-icon {
+  width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: rgba(15,174,115,.08); border: 1px solid rgba(15,174,115,.14); font-size: 22px; margin-bottom: 14px;
+}
+.feature-card h3, .insight-card h3 { margin: 0 0 8px; font-size: 17px; color: var(--text); }
+.feature-card p, .insight-card p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.65; }
+
+.steps-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 18px; }
+.step {
+  padding: 18px; border-radius: 22px; background: rgba(255,255,255,.96); border: 1px solid rgba(16,35,27,.06); min-height: 140px;
+}
+.step-num {
+  display: inline-flex; width: 46px; height: 46px; align-items: center; justify-content: center; border-radius: 14px; background: rgba(15,174,115,.08); border: 1px solid rgba(15,174,115,.14); color: var(--primary-2); font-family: 'Fraunces', serif; font-size: 20px; margin-bottom: 14px;
+}
+.step h4 { margin: 0 0 6px; font-size: 16px; color: var(--text); }
+.step p  { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.65; }
+
+.upload-panel { display: grid; grid-template-columns: 1.12fr .88fr; gap: 12px; margin-top: 20px; }
+.upload-card, .tip-card {
+  position: relative; border-radius: 24px; background: rgba(255,255,255,.96); border: 1px solid rgba(16,35,27,.06); padding: 16px; overflow: hidden;
+}
+.tip-card {
+  background: url('https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1400&q=100') center/cover no-repeat;
+}
+.tip-card > * { position: relative; z-index: 2; }
+.tip-card::before { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,.76); }
+.tip-list { display: grid; gap: 10px; margin-top: 12px; }
+.tip-item { display:flex; align-items:flex-start; gap:10px; font-size: 13px; color: var(--text); line-height: 1.6; }
+.tip-mark {
+  width: 24px; height: 24px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; border-radius: 999px; background: rgba(15,174,115,.10); color: var(--primary-2); font-size: 12px; margin-top: 1px;
+}
+
+[data-testid="stFileUploader"] { border-radius: 20px !important; }
+[data-testid="stFileUploader"] > div {
+  background: #ffffff !important;
+  border: 2px dashed rgba(15,174,115,.28) !important;
+  border-radius: 22px !important;
+  padding: 28px 18px !important;
+}
+[data-testid="stFileUploader"] > div:hover { border-color: rgba(15,174,115,.55) !important; }
+[data-testid="stFileUploader"] label,
+[data-testid="stFileUploader"] small,
+[data-testid="stFileUploader"] span { color: var(--muted) !important; }
+
+.result-banner {
+  background: rgba(255,255,255,.98);
+  border: 1px solid rgba(16,35,27,.08);
+  border-left: 4px solid var(--primary);
+  border-radius: 24px;
+  padding: 18px;
+}
+.result-banner .condition {
+  font-family: 'Fraunces', serif; font-size: clamp(32px, 4vw, 44px); line-height: 1.05; color: var(--text); margin-bottom: 8px;
+}
+.badge {
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+}
+.badge-em { color: var(--primary-2); background: rgba(15,174,115,.08); border: 1px solid rgba(15,174,115,.16); }
+.badge-warn { color: var(--warning); background: rgba(255,209,102,.14); border: 1px solid rgba(255,209,102,.22); }
+
+[data-testid="stProgress"] > div { background: rgba(16,35,27,.08) !important; border-radius: 999px !important; }
+[data-testid="stProgress"] > div > div { background: linear-gradient(90deg, var(--primary), #72e2b3) !important; border-radius: 999px !important; }
+
+.stTabs [data-baseweb="tab-list"] { gap: 8px; flex-wrap: wrap; }
+[data-testid="stTabs"] [role="tab"] {
+  border-radius: 999px !important; padding: 9px 14px !important; border: 1px solid rgba(16,35,27,.08) !important; background: rgba(255,255,255,.92) !important; color: var(--muted) !important; font-weight: 600 !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+  color: #ffffff !important; border-color: rgba(15,174,115,.20) !important; background: linear-gradient(135deg, var(--primary), #16c786) !important;
+}
+[data-testid="stTabs"] [data-baseweb="tab-panel"] { padding-top: 18px !important; }
+
+.remedy-card {
+  position: relative; overflow: hidden; background: rgba(255,255,255,.98); border: 1px solid rgba(16,35,27,.08); border-radius: 22px; padding: 20px; color: var(--text); line-height: 1.7; min-height: 145px;
+}
+.remedy-card::before {
+  content: attr(data-num); position: absolute; right: 16px; top: 14px; font-family: 'Fraunces', serif; font-size: 28px; color: rgba(15,174,115,.12);
+}
+
+.clinic-card {
+  background: rgba(255,255,255,.98); border: 1px solid rgba(16,35,27,.08); border-radius: 22px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; transition: transform .2s ease, border-color .2s ease;
+}
+.clinic-card:hover { transform: translateY(-2px); border-color: rgba(15,174,115,.18); }
+.clinic-icon {
+  width: 46px; height: 46px; border-radius: 15px; display:flex; align-items:center; justify-content:center; background: rgba(15,174,115,.08); border: 1px solid rgba(15,174,115,.14); font-size: 20px; flex-shrink: 0;
+}
+.clinic-name { color: var(--text); font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.clinic-meta { color: var(--muted); font-size: 13px; line-height: 1.65; }
+
+.chat-container {
+  background: rgba(255,255,255,.98); border: 1px solid rgba(16,35,27,.08); border-radius: 26px; overflow: hidden;
+}
+.chat-header {
+  padding: 16px 20px; border-bottom: 1px solid rgba(16,35,27,.08); display: flex; align-items: center; gap: 12px; background: #fbfefd;
+}
+.chat-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px rgba(15,174,115,.12); }
+.chat-messages { padding: 18px; display: flex; flex-direction: column; gap: 12px; min-height: 240px; max-height: 420px; overflow-y: auto; }
+.msg { max-width: 84%; padding: 13px 16px; border-radius: 18px; font-size: 14px; line-height: 1.65; }
+.msg.user { align-self: flex-end; background: linear-gradient(135deg, var(--primary), #16c786); color: #ffffff; border-bottom-right-radius: 6px; }
+.msg.bot { align-self: flex-start; background: #f7fbf9; border: 1px solid rgba(16,35,27,.06); color: var(--text); border-bottom-left-radius: 6px; }
+
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] select {
+  background: #ffffff !important; color: var(--text) !important; border: 1px solid rgba(16,35,27,.10) !important; border-radius: 16px !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border-color: rgba(15,174,115,.45) !important; box-shadow: 0 0 0 3px rgba(15,174,115,.10) !important;
+}
+
+.stButton > button {
+  border-radius: 999px !important; font-weight: 600 !important; padding: 10px 20px !important; border: 1px solid transparent !important; background: linear-gradient(135deg, var(--primary), #16c786) !important; color: #ffffff !important; transition: all .22s ease !important;
+}
+.stButton > button:hover { transform: translateY(-1px); }
+.stButton > button[kind="secondary"] {
+  background: #ffffff !important; color: var(--text) !important; border: 1px solid rgba(16,35,27,.10) !important;
+}
+.stButton > button[kind="secondary"]:hover { border-color: rgba(15,174,115,.24) !important; color: var(--primary-2) !important; box-shadow: none !important; }
+
+[data-testid="stMetric"] {
+  background: #ffffff !important; border: 1px solid rgba(16,35,27,.08) !important; border-radius: 22px !important; padding: 18px !important;
+}
+[data-testid="stMetricValue"] { color: var(--primary-2) !important; font-family: 'Fraunces', serif !important; }
+[data-testid="stMetricLabel"] { color: var(--muted) !important; }
+
+[data-testid="stAlert"] { border-radius: 18px !important; border: 1px solid rgba(16,35,27,.06) !important; }
+.stSuccess { background: rgba(15,174,115,.08) !important; color: var(--primary-2) !important; }
+.stWarning { background: rgba(255,209,102,.10) !important; color: var(--warning) !important; }
+.stError   { background: rgba(255,107,107,.10) !important; color: var(--danger) !important; }
+
+.footer { max-width: 1220px; margin: 0 auto 22px; padding: 10px 16px 22px; text-align: center; color: var(--soft); }
+.footer-box {
+  border-radius: 28px; padding: 20px; background: rgba(255,255,255,.90); border: 1px solid rgba(16,35,27,.08); box-shadow: var(--shadow);
+}
+.footer-title { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 400; color: var(--text); margin-bottom: 8px; }
+
+[data-testid="stImage"] img { border-radius: 22px !important; border: 1px solid rgba(16,35,27,.08); }
+
+@media (max-width: 1100px) {
+  .hero, .upload-panel, .steps-grid { grid-template-columns: 1fr; }
+  .hero { min-height: auto; }
+  .stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 768px) {
+  .hero-wrap, .section-shell { padding: 12px; }
+  .hero-left, .hero-right, .section { border-radius: 22px; }
+  .hero-left, .section { padding: 18px; }
+  .hero h1 { font-size: clamp(34px, 11vw, 54px); }
+  .section-title { font-size: 30px; }
+}
+@media (max-width: 520px) {
+  .stat-grid, .floating-chip-wrap { grid-template-columns: 1fr; }
+  .hero-actions { flex-direction: column; }
+  .hero-btn, .hero-btn-secondary { width: 100%; }
+}
+</style></style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ────────────────────────────────────────────────────────────
+# AI & MODEL SETUP (unchanged backend logic)
+# ────────────────────────────────────────────────────────────
+try:
+    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+except Exception as e:
+    st.error(f"Error configuring Groq API: {e}")
+    st.stop()
+
+
+@st.cache_resource
+def load_and_cache_tflite_model():
+    MODEL_PATH = "skin_model.tflite"
+    MODEL_URL = "https://huggingface.co/Tanishq77/skin-condition-classifier/resolve/main/skin_model.tflite"
+    if not os.path.exists(MODEL_PATH):
+        st.info("Downloading AI model — this takes a moment on first launch.")
+        try:
+            response = requests.get(MODEL_URL, stream=True)
+            response.raise_for_status()
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        except requests.exceptions.RequestException as e:
+            st.error(f"Failed to download model: {e}")
+            return None
+    try:
+        interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+        interpreter.allocate_tensors()
+        return interpreter
+    except Exception as e:
+        st.error(f"Error loading TFLite model: {e}")
+        return None
+
+
+interpreter = load_and_cache_tflite_model()
+if interpreter is None:
+    st.stop()
+
+CLASS_NAMES = ["Acne", "Carcinoma", "Eczema", "Keratosis", "Milia", "Rosacea"]
+
+CONDITION_INFO = {
+    "Acne": {
+        "emoji": "🔴",
+        "severity": "Common",
+        "description": "Inflammatory condition affecting hair follicles and oil glands, causing pimples, blackheads, and whiteheads.",
+        "triggers": ["Hormonal changes", "Stress", "Diet", "Excess sebum", "Bacteria (C. acnes)"],
+        "when_to_see_doctor": "Persistent nodular acne, severe scarring, or no improvement after 8 weeks of home care.",
+    },
+    "Carcinoma": {
+        "emoji": "⚠️",
+        "severity": "Serious – Consult immediately",
+        "description": "Skin carcinoma is a type of skin cancer originating in skin cells. Early detection significantly improves outcomes.",
+        "triggers": ["UV radiation", "Fair skin", "Immunosuppression", "Chemical exposure", "Prior radiation"],
+        "when_to_see_doctor": "IMMEDIATELY. Any suspicious lesion should be evaluated by a dermatologist without delay.",
+    },
+    "Eczema": {
+        "emoji": "🟠",
+        "severity": "Chronic – Manageable",
+        "description": "Also known as atopic dermatitis; causes dry, itchy, inflamed skin. Often runs in families alongside asthma.",
+        "triggers": ["Allergens", "Dry skin", "Sweat", "Soaps/detergents", "Stress"],
+        "when_to_see_doctor": "If skin is cracking, weeping, or infected, or if OTC treatments fail.",
+    },
+    "Keratosis": {
+        "emoji": "🟡",
+        "severity": "Benign / Monitor",
+        "description": "Seborrheic or actinic keratosis — rough, scaly patches caused by sun damage or age. Actinic forms may become cancerous.",
+        "triggers": ["Sun exposure", "Aging", "Genetics", "Immunosuppression"],
+        "when_to_see_doctor": "For actinic keratosis, consult a dermatologist; some require treatment to prevent progression.",
+    },
+    "Milia": {
+        "emoji": "🟢",
+        "severity": "Benign",
+        "description": "Tiny white cysts of keratin trapped beneath the skin surface. Common in newborns and adults, harmless.",
+        "triggers": ["Skin trauma", "Heavy skincare products", "Sun damage", "Blistering conditions"],
+        "when_to_see_doctor": "Only if persistent or affecting self-confidence; dermatologist can extract safely.",
+    },
+    "Rosacea": {
+        "emoji": "🩷",
+        "severity": "Chronic – Manageable",
+        "description": "Chronic facial redness with visible blood vessels, often accompanied by acne-like breakouts and skin sensitivity.",
+        "triggers": ["Sun", "Spicy food", "Alcohol", "Temperature extremes", "Exercise", "Stress"],
+        "when_to_see_doctor": "If eyes are affected (ocular rosacea) or condition significantly impacts quality of life.",
+    },
+}
+
+
+# ────────────────────────────────────────────────────────────
+# BACKEND FUNCTIONS (unchanged logic)
+# ────────────────────────────────────────────────────────────
+def get_prediction(image):
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    img = image.resize((input_details[0]['shape'][1], input_details[0]['shape'][2]))
+    arr = np.array(img).astype("float32")
+    arr = np.expand_dims(arr, axis=0)
+    arr = tf.keras.applications.efficientnet_v2.preprocess_input(arr)
+    interpreter.set_tensor(input_details[0]['index'], arr)
+    interpreter.invoke()
+    preds = interpreter.get_tensor(output_details[0]['index'])[0]
+    idx = np.argmax(preds)
+    return CLASS_NAMES[idx], float(preds[idx]), preds
+
+
+def get_groq_response(prompt, system_prompt=None):
+    try:
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        chat_completion = groq_client.chat.completions.create(
+            messages=messages,
+            model="llama-3.1-8b-instant",
+        )
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        return f"Error communicating with Groq: {e}"
+
+
+def scrape_with_api(city: str):
+    clinic_list = []
+    api_url = "https://www.justdial.com/api/search"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': f'https://www.justdial.com/{city.lower().strip()}/Dermatologists',
+    }
+    payload = {"search": "Dermatologists", "location": city.lower().strip()}
+    try:
+        response = requests.post(api_url, headers=headers, json=payload, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("results"):
+            for clinic in data["results"]:
+                clinic_list.append({
+                    "name": clinic.get("name", "N/A"),
+                    "location": clinic.get("address", "N/A"),
+                    "contact": clinic.get("contact_number", "N/A"),
+                })
+    except Exception as e:
+        st.error(f"Failed to fetch clinic data: {e}")
+        return None
+    return clinic_list
+
+
+def scrape_with_selenium(city: str):
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from webdriver_manager.chrome import ChromeDriverManager
+    from selenium.webdriver.chrome.options import Options
+
+    clinic_list = []
+    url = f"https://www.justdial.com/{city.lower().strip()}/Dermatologists"
+    try:
+        options = Options()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        service = Service(ChromeDriverManager().install())
+        with webdriver.Chrome(service=service, options=options) as driver:
+            driver.get(url)
+            time.sleep(7)
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+        for card in soup.select("div.resultbox"):
+            name_el = card.select_one('h3.resultbox_title_anchor')
+            if name_el:
+                clinic_list.append({
+                    "name": name_el.text.strip(),
+                    "location": (card.select_one('div.locatcity') or {}).get('text', 'N/A') if hasattr(card.select_one('div.locatcity'), 'text') else 'N/A',
+                    "contact":  (card.select_one('span.callcontent') or {}).get('text', 'N/A') if hasattr(card.select_one('span.callcontent'), 'text') else 'N/A',
+                })
+    except Exception as e:
+        st.error(f"Selenium error: {e}")
+        return None
+    return clinic_list
+
+
+# ────────────────────────────────────────────────────────────
+# SESSION STATE
+# ────────────────────────────────────────────────────────────
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "analysis_done" not in st.session_state:
+    st.session_state.analysis_done = False
+if "prediction" not in st.session_state:
+    st.session_state.prediction = None
+if "confidence" not in st.session_state:
+    st.session_state.confidence = None
+if "all_preds" not in st.session_state:
+    st.session_state.all_preds = None
+if "remedies" not in st.session_state:
+    st.session_state.remedies = None
+
+
+# ────────────────────────────────────────────────────────────
+# HERO
+# ────────────────────────────────────────────────────────────
+st.markdown(
+    """
+<div class="hero-wrap">
+  <div class="hero">
+    <div class="hero-card hero-left">
+      <div class="hero-badge"><span class="dot"></span> AI Dermatology Experience</div>
+      <h1>AI skin analysis,<br><em>refined into a premium</em><br>medical experience.</h1>
+      <p>Upload a photo, get a fast prediction, review clear guidance, and connect with dermatologists through a cleaner, more elegant experience.</p>
+      <div class="hero-actions">
+        <a class="hero-btn" href="#analyze">Start Analysis</a>
+        <a class="hero-btn-secondary" href="#features">Explore Features</a>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card"><span class="v">95.6%</span><span class="l">Model accuracy</span></div>
+        <div class="stat-card"><span class="v">6</span><span class="l">Supported conditions</span></div>
+        <div class="stat-card"><span class="v">&lt;2s</span><span class="l">Groq latency</span></div>
+        <div class="stat-card"><span class="v">24/7</span><span class="l">Instant availability</span></div>
+      </div>
+    </div>
+    <div class="hero-card hero-right">
+      <div class="hero-visual"></div>
+      <div class="floating-chip-wrap">
+        <div class="floating-chip">
+          <strong>Condition intelligence</strong>
+          <span>Fast classification for Acne, Carcinoma, Eczema, Keratosis, Milia, and Rosacea.</span>
+        </div>
+        <div class="floating-chip">
+          <strong>Groq-powered guidance</strong>
+          <span>Receive remedies, routines, and contextual answers through an integrated AI assistant.</span>
+        </div>
+        <div class="floating-chip">
+          <strong>Transparent probabilities</strong>
+          <span>Review confidence scores for every condition to better understand the prediction.</span>
+        </div>
+        <div class="floating-chip">
+          <strong>Local care access</strong>
+          <span>Search live dermatologist listings in your city with contact details and location info.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+# ────────────────────────────────────────────────────────────
+# FEATURES
+# ────────────────────────────────────────────────────────────
+st.markdown('<hr class="divider">', unsafe_allow_html=True)
+st.markdown(
+    """
+<div class="section-shell" id="features">
+  <div class="section">
+    <div class="section-label">Platform Highlights</div>
+    <h2 class="section-title">Cleaner structure. Sharper visuals. Better UX.</h2>
+    <p class="section-sub">A shorter, cleaner landing experience with clearer hierarchy, more premium cards, and better visual balance.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🧬</div>
+        <h3>AI Skin Classification</h3>
+        <p>Your TensorFlow Lite EfficientNetV2 pipeline remains unchanged while the presentation layer now highlights diagnosis more clearly and professionally.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💊</div>
+        <h3>Actionable Remedies</h3>
+        <p>Llama-powered remedies are surfaced in premium content cards for easier reading, better scanability, and a more user-friendly experience.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3>Probability Transparency</h3>
+        <p>Confidence distribution remains the same, but the interface now improves visual focus so users can understand the top prediction faster.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💬</div>
+        <h3>Integrated Chat Guidance</h3>
+        <p>The medical chatbot is framed like a real assistant panel, making follow-up questions feel natural and product-grade.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏥</div>
+        <h3>Clinic Discovery</h3>
+        <p>Your Justdial-based clinic lookup stays untouched while results now appear in more polished, card-based medical directory listings.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Trust-First Experience</h3>
+        <p>The new structure emphasizes privacy, safety, and professional care escalation, which is important for healthcare-facing products.</p>
+      </div>
+    </div>
+  </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+# ────────────────────────────────────────────────────────────
+# HOW IT WORKS
+# ────────────────────────────────────────────────────────────
+st.markdown('<div class="section-shell"><div class="section">', unsafe_allow_html=True)
+st.markdown(
+    """
+<div class="section-label">How it Works</div>
+<h2 class="section-title">A simpler path from upload to results.</h2>
+<p class="section-sub">The page now moves faster: understand the product, upload an image, review the result, and take action.</p>
+<div class="steps-grid">
+  <div class="step">
+    <div class="step-num">01</div>
+    <h4>Upload a clear skin image</h4>
+    <p>Select a close, well-lit image of the affected area. The upload zone is now more prominent and visually guided.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">02</div>
+    <h4>Run AI classification</h4>
+    <p>Your current TensorFlow Lite prediction logic processes the image and identifies the most likely skin condition.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">03</div>
+    <h4>Explore tailored guidance</h4>
+    <p>Users can review remedies, a skincare routine, confidence breakdown, and a detailed condition guide in organized tabs.</p>
+  </div>
+  <div class="step">
+    <div class="step-num">04</div>
+    <h4>Connect with care</h4>
+    <p>If needed, the website helps users ask questions via chat and search for dermatologists in their city.</p>
+  </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+st.markdown('</div></div>', unsafe_allow_html=True)
+
+# ────────────────────────────────────────────────────────────
+# UPLOAD SECTION
+# ────────────────────────────────────────────────────────────
+st.markdown(
+    """
+<div class="section-shell" id="analyze">
+  <div class="section">
+    <div class="section-label">Start Diagnosis</div>
+    <h2 class="section-title">Analyze your skin with a more beautiful, guided upload experience.</h2>
+    <p class="section-sub">Everything below keeps your original logic intact. Only the structure and styling have been enhanced to improve clarity, trust, and visual appeal.</p>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="upload-panel">', unsafe_allow_html=True)
+
+col_upload, col_tip = st.columns([1.15, 0.85])
+
+with col_upload:
+    st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+    uploaded_file = st.file_uploader(
+        "Drop your image here, or click to browse",
+        type=["jpg", "jpeg", "png"],
+        label_visibility="visible",
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col_tip:
+    st.markdown(
+        """
+<div class="tip-card">
+  <div class="section-label" style="margin-bottom:8px;">Image Quality Tips</div>
+  <h3 style="margin:0 0 12px;font-size:24px;color:var(--text);font-family:'Fraunces',serif;font-weight:300;">Improve prediction quality.</h3>
+  <div class="tip-list">
+    <div class="tip-item"><div class="tip-mark">✓</div><div>Use natural daylight or even indoor lighting with minimal shadows.</div></div>
+    <div class="tip-item"><div class="tip-mark">✓</div><div>Keep the camera steady and capture a close, clear view of the skin area.</div></div>
+    <div class="tip-item"><div class="tip-mark">✓</div><div>Avoid filters, heavy makeup, flash glare, or overly dark photographs.</div></div>
+    <div class="tip-item"><div class="tip-mark">✓</div><div>Try to frame the affected area cleanly without too much background distraction.</div></div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+st.markdown('</div></div></div>', unsafe_allow_html=True)
+
+# ────────────────────────────────────────────────────────────
+# ANALYSIS RESULTS
+# ────────────────────────────────────────────────────────────
+if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
+
+    if not st.session_state.analysis_done:
+        with st.spinner("🔬 Analyzing with EfficientNetV2 + Groq Llama 3 …"):
+            prediction, confidence, all_preds = get_prediction(image)
+            remedies_prompt = (
+                f"Generate exactly 6 evidence-based, actionable home remedies for {prediction}. "
+                "Return ONLY a JSON array of 6 strings, no extra text. Each string is one remedy (2-3 sentences). "
+                "Example: [\"Remedy one...\", \"Remedy two...\", ...]"
+            )
+            raw_remedies = get_groq_response(remedies_prompt)
+            try:
+                import json
+                remedies_list = json.loads(raw_remedies)
+                if not isinstance(remedies_list, list):
+                    raise ValueError
+            except Exception:
+                remedies_list = [r.strip().lstrip("-•0123456789. ") for r in raw_remedies.split("\n") if r.strip()][:6]
+
+            st.session_state.prediction = prediction
+            st.session_state.confidence = confidence
+            st.session_state.all_preds = all_preds
+            st.session_state.remedies = remedies_list
+            st.session_state.analysis_done = True
+
+    prediction = st.session_state.prediction
+    confidence = st.session_state.confidence
+    all_preds = st.session_state.all_preds
+    remedies_list = st.session_state.remedies
+    info = CONDITION_INFO.get(prediction, {})
+
+    st.success("✅ Analysis complete! Your enhanced results experience is ready below.")
+
+    st.markdown('<div class="section-shell"><div class="section">', unsafe_allow_html=True)
+
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    with metric_col1:
+        st.metric("Detected condition", prediction)
+    with metric_col2:
+        st.metric("Model confidence", f"{confidence * 100:.1f}%")
+    with metric_col3:
+        st.metric("Severity", info.get("severity", "—"))
+
+    col_img, col_result = st.columns([0.95, 1.25])
+
+    with col_img:
+        st.image(image, caption="Uploaded skin image", use_container_width=True)
+
+    with col_result:
+        severity_badge = "badge-warn" if prediction in ["Carcinoma"] else "badge-em"
+        st.markdown(
+            f"""
+<div class="result-banner">
+  <div style="font-size:13px;color:var(--soft);margin-bottom:8px;">Primary AI Detection</div>
+  <div class="condition">{info.get('emoji','🔬')} {prediction}</div>
+  <div style="margin-bottom:16px;"><span class="badge {severity_badge}">{info.get('severity','—')}</span></div>
+  <div style="font-size:15px;color:var(--muted);line-height:1.8;margin-bottom:18px;">{info.get('description','')}</div>
+  <div style="font-size:13px;color:var(--soft);margin-bottom:8px;">Prediction confidence</div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+        st.progress(confidence, text=f"{confidence * 100:.1f}% confidence")
+
+        if prediction == "Carcinoma":
+            st.error("⚠️ Urgent: This AI suspects carcinoma. Please consult a dermatologist immediately. Do not delay evaluation.")
+
+    tab1, tab2, tab3, tab4 = st.tabs(["💊 Home Remedies", "📊 All Probabilities", "📋 Condition Guide", "🛒 Skincare Routine"])
+
+    with tab1:
+        st.markdown("#### AI-Generated Remedies")
+        st.caption("These suggestions are educational and do not replace professional medical advice.")
+        if remedies_list:
+            cols = st.columns(2)
+            for i, remedy in enumerate(remedies_list):
+                with cols[i % 2]:
+                    st.markdown(
+                        f'<div class="remedy-card" data-num="{i+1:02d}"><strong style="color:var(--text);font-size:14px;">Remedy {i+1}</strong><br><br>{remedy}</div>',
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.info("Remedies unavailable. Try re-uploading.")
+
+    with tab2:
+        st.markdown("#### Confidence scores across all conditions")
+        for name, prob in zip(CLASS_NAMES, all_preds):
+            is_top = name == prediction
+            label_style = "color:var(--primary);font-weight:700;" if is_top else "color:var(--muted);font-weight:500;"
+            st.markdown(f'<div style="font-size:14px;{label_style}margin-bottom:6px;">{CONDITION_INFO[name]["emoji"]} {name}</div>', unsafe_allow_html=True)
+            st.progress(float(prob), text=f"{float(prob)*100:.1f}%")
+            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
+    with tab3:
+        if info:
+            g1, g2 = st.columns(2)
+            with g1:
+                st.markdown("**Common Triggers**")
+                for t in info.get("triggers", []):
+                    st.markdown(
+                        f"<div style='font-size:14px;color:var(--muted);padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);'>→ {t}</div>",
+                        unsafe_allow_html=True,
+                    )
+            with g2:
+                st.markdown("**When to See a Doctor**")
+                st.markdown(
+                    f'<div class="insight-card" style="padding:22px;font-size:14px;color:var(--muted);line-height:1.8;">{info.get("when_to_see_doctor","Consult if symptoms worsen.")}</div>',
+                    unsafe_allow_html=True,
+                )
+
+    with tab4:
+        routine_prompt = (
+            f"Create a complete morning + evening skincare routine for someone with {prediction}. "
+            "Include product types (cleanser, moisturiser, SPF, treatments). "
+            "Format as: MORNING ROUTINE\\n[steps]\\n\\nEVENING ROUTINE\\n[steps]\\n\\nINGREDIENTS TO LOOK FOR\\n[list]\\n\\nINGREDIENTS TO AVOID\\n[list]"
+        )
+        if "routine" not in st.session_state:
+            with st.spinner("Building your personalised routine …"):
+                st.session_state.routine = get_groq_response(routine_prompt)
+
+        st.markdown(
+            f'<div class="insight-card" style="white-space:pre-wrap;font-size:14px;color:var(--muted);line-height:1.85;">{st.session_state.routine}</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+    # CHATBOT
+    st.markdown(
+        f"""
+<div class="section-shell">
+  <div class="section">
+    <div class="section-label">AI Follow-up Support</div>
+    <h2 class="section-title">Ask anything about <span style="color:var(--primary);">{prediction}</span>.</h2>
+    <p class="section-sub">The chat assistant section has been visually upgraded to feel more like a professional in-app healthcare conversation interface.</p>
+""",
+        unsafe_allow_html=True,
+    )
+
+    SYSTEM_PROMPT = (
+        f"You are DermAssist, an expert AI skin health assistant. "
+        f"The user has been diagnosed with {prediction} (confidence {confidence*100:.1f}%). "
+        "Provide concise, evidence-based, empathetic answers about skin health. "
+        "Always recommend seeing a dermatologist for diagnosis or treatment decisions. "
+        "Keep responses under 150 words unless asked for more detail."
+    )
+
+    if st.session_state.chat_history:
+        st.markdown('<div class="chat-container"><div class="chat-header"><div class="chat-dot"></div><span style="font-size:14px;font-weight:600;color:var(--text);">DermAssist AI</span><span style="font-size:12px;color:var(--soft);margin-left:8px;">Online · Llama 3 via Groq</span></div><div class="chat-messages">', unsafe_allow_html=True)
+        for msg in st.session_state.chat_history:
+            role_class = "user" if msg["role"] == "user" else "bot"
+            st.markdown(f'<div class="msg {role_class}">{msg["content"]}</div>', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
+
+    col_chat, col_send = st.columns([5, 1])
+    with col_chat:
+        quick_questions = [
+            f"What ingredients should I avoid with {prediction}?",
+            "Is this condition contagious?",
+            "How long does it take to clear up?",
+            "What diet changes help?",
+            "Can stress worsen my condition?",
+        ]
+        user_input = st.text_input(
+            "Ask a question …",
+            placeholder=f"e.g. {quick_questions[0]}",
+            key="chat_input",
+            label_visibility="collapsed",
+        )
+    with col_send:
+        send_btn = st.button("Send →", use_container_width=True)
+
+    chip_cols = st.columns(4)
+    for i, q in enumerate(quick_questions[:4]):
+        with chip_cols[i]:
+            if st.button(q, key=f"quick_{i}", type="secondary", use_container_width=True):
+                user_input = q
+                send_btn = True
+
+    if send_btn and user_input:
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        with st.spinner("DermAssist is thinking …"):
+            convo_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+            for msg in st.session_state.chat_history[-8:]:
+                convo_messages.append(msg)
+            try:
+                resp = groq_client.chat.completions.create(
+                    messages=convo_messages,
+                    model="llama-3.1-8b-instant",
+                )
+                bot_reply = resp.choices[0].message.content
+            except Exception as e:
+                bot_reply = f"Sorry, I couldn't reach the AI right now: {e}"
+        st.session_state.chat_history.append({"role": "assistant", "content": bot_reply})
+        st.rerun()
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+    # CLINIC FINDER
+    st.markdown(
+        """
+<div class="section-shell">
+  <div class="section">
+    <div class="section-label">Professional Care Access</div>
+    <h2 class="section-title">Find dermatologists near you.</h2>
+    <p class="section-sub">Your clinic search logic remains exactly the same, but the interface now feels more like a premium healthcare directory.</p>
+""",
+        unsafe_allow_html=True,
+    )
+
+    col_city, col_go = st.columns([4, 1])
+    with col_city:
+        city = st.text_input("City", placeholder="e.g. Pune, Mumbai, Delhi", label_visibility="collapsed")
+    with col_go:
+        find_btn = st.button("Find Clinics", use_container_width=True)
+
+    if find_btn and city:
+        with st.spinner(f"Searching dermatologists in {city} …"):
+            scraper_mode = os.getenv("SCRAPER_MODE", "api")
+            clinic_data = scrape_with_selenium(city) if scraper_mode == "selenium" else scrape_with_api(city)
+
+        if clinic_data:
+            st.success(f"Found {len(clinic_data)} clinics in {city}")
+            for clinic in clinic_data:
+                st.markdown(
+                    f"""
+<div class="clinic-card" style="margin-bottom:12px;">
+  <div class="clinic-icon">🏥</div>
+  <div>
+    <div class="clinic-name">{clinic['name']}</div>
+    <div class="clinic-meta">
+      📍 {clinic['location']}<br>
+      📞 {clinic['contact']}
+    </div>
+  </div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
+            st.caption("Data sourced from Justdial.com.")
+        else:
+            st.warning(f"No clinics found for '{city}'. This may be due to anti-scraping measures. Try a different city name.")
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+else:
+    st.markdown(
+        """
+<div class="section-shell">
+  <div class="section" style="text-align:center;">
+    <div style="font-size:72px;margin-bottom:10px;">🔬</div>
+    <h2 class="section-title" style="margin-bottom:8px;">No image uploaded yet</h2>
+    <p class="section-sub" style="margin:0 auto;">Upload a skin image above to start the AI-powered diagnosis experience.</p>
+    <div class="insight-grid" style="margin-top:28px;">
+      <div class="insight-card"><h3>Better structure</h3><p>Content is now grouped into a clearer narrative flow for users.</p></div>
+      <div class="insight-card"><h3>Beautiful visuals</h3><p>Background imagery, glassmorphism, gradients, and depth make the page feel more premium.</p></div>
+      <div class="insight-card"><h3>Same core logic</h3><p>Your uploader, prediction engine, remedies, chatbot, and clinic finder remain unchanged.</p></div>
+    </div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+# ────────────────────────────────────────────────────────────
+# FOOTER
+# ────────────────────────────────────────────────────────────
+st.markdown(
+    """
+<div class="footer">
+  <div class="footer-box">
+    <div class="footer-title">DermAssist AI</div>
+    <div style="margin-bottom:14px;color:var(--muted);">
+      EfficientNetV2B0 · Llama 3 via Groq · TensorFlow Lite · Streamlit
+    </div>
+    <div style="max-width:760px;margin:0 auto 16px;font-size:13px;line-height:1.85;">
+      ⚠️ <strong style="color:var(--text);">Medical Disclaimer:</strong> DermAssist is an educational AI tool and does not constitute medical advice, diagnosis, or treatment.
+      Always consult a qualified dermatologist or healthcare professional for medical decisions.
+      In case of suspected carcinoma or rapidly worsening symptoms, seek immediate medical attention.
+    </div>
+    <div style="font-size:12px;">Built with ❤️ · © 2026 DermAssist AI · All rights reserved</div>
+  </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
