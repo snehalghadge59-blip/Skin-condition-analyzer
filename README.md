@@ -1,6 +1,6 @@
 # 🧠 AI Skincare Assistant
 
-An end-to-end AI-powered web application built with Streamlit that leverages a deep learning model (EfficientNetV2B0) to classify six common skin conditions from facial images, generates personalized treatment plans using Gemini LLM, analyzes skincare ingredients, and assists users in locating local dermatologists through location-based web scraping.
+An end-to-end AI-powered web application built with Streamlit that leverages a deep learning model (EfficientNetV2B0) to classify six common skin conditions from facial images, generates personalized treatment plans using Groq LLM, analyzes skincare ingredients, and assists users in locating local dermatologists through location-based web scraping.
 
 ---
 
@@ -64,7 +64,7 @@ skin-condition-app/
     -   Inside it, create a file named `secrets.toml`.
     -   Add your Gemini API key to the file:
     ```ini
-    GEMINI_API_KEY="your_google_gemini_api_key"
+    Groq_API_KEY="your_google_gemini_api_key"
     ```
 
 5.  **Run the Streamlit App**
@@ -103,26 +103,9 @@ This served as a baseline reference while adapting and customizing the model tra
 -   **Deployed Model**: [skin-condition-classifier on Hugging Face](https://huggingface.co/Tanishq77/skin-condition-classifier/tree/main)
 -   **Dataset**: [Augmented Skin Conditions Dataset on Kaggle](https://www.kaggle.com/datasets/syedalinaqvi/augmented-skin-conditions-image-dataset)
 
----
-### 🧪 Web App Results
-
-## Home Page :
-<img src="https://github.com/user-attachments/assets/6c4aa462-de6e-40f8-9970-cc88d31423e4" alt="Home Page" width="600"/>
-
-## Prediction Page :
-<img src="https://github.com/user-attachments/assets/74f3823a-bb33-4651-999a-7608b9634956" alt="Prediction Page" width="600"/>
-
-## Remedies Page :
-<img src="https://github.com/user-attachments/assets/13c9168f-bf7c-4457-b1d7-60813e4dc093" alt="Remedies Page" width="600"/>
-
-## Consult Experts Section :
-<img src="https://github.com/user-attachments/assets/2da881e3-babb-40e2-ac1c-3c0d26ddef22" alt="Consult Experts" width="600"/>
-
 
 
 ---
 ## ✍️ Author
 
-**Tanishq Shinde**
-🎓 B.E. Computer Engineering, PICT
 🌐 [GitHub](https://github.com/) | [LinkedIn](https://linkedin.com/) | [Hugging Face](https://huggingface.co/)
