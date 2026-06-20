@@ -40,41 +40,6 @@ skin-condition-app/
 
 ---
 
-## 🚀 How to Run Locally
-
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/Tanishq-789/Skin-condition-analyzer.git
-    cd Skin-condition-analyzer
-    ```
-
-2.  **Create and Activate a Virtual Environment**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    ```
-
-3.  **Install Dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Set Up API Key**
-    -   Create a folder named `.streamlit` in your project directory.
-    -   Inside it, create a file named `secrets.toml`.
-    -   Add your Gemini API key to the file:
-    ```ini
-    Groq_API_KEY="your_google_gemini_api_key"
-    ```
-
-5.  **Run the Streamlit App**
-    ```bash
-    streamlit run app.py
-    ```
-    The app will automatically download the required Keras model from Hugging Face on the first run.
-
----
-
 ## 📊 Model Information
 
 -   **Architecture**: **EfficientNetV2B0** (pretrained on ImageNet)
